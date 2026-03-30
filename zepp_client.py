@@ -16,6 +16,116 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 # ──────────────────────────────────────────────
+# I18N
+# ──────────────────────────────────────────────
+
+STRINGS = {
+    "en": {
+        "step1":          "[*] Step 1 — Getting access code for {}...",
+        "rate_limited":   "[!] 429 rate limited — waiting {}s (attempt {}/4)...",
+        "rate_give_up":   "[!] Step 1 still failing with 429 after 4 attempts. Wait a few minutes.",
+        "step1_failed":   "[!] Step 1 failed — status {}",
+        "step1_ok":       "[+] Step 1 OK — country_code={}",
+        "step2":          "[*] Step 2 — Exchanging code for app_token...",
+        "step2_failed":   "[!] Step 2 failed — status {}",
+        "step2_body":     "    Body: {}",
+        "step2_unexpected":"[!] Step 2 unexpected response: {}",
+        "logged_in":      "[+] Logged in! user_id = {}",
+        "token_expired":  "[*] Token expired — renewing automatically...",
+        "token_renewed":  "[+] Token renewed and saved to .env",
+        "token_error":    "[!] Could not renew token:\n{}",
+        "using_token":    "[+] Using direct token, user_id={}",
+        "fetching":       "[*] Fetching activity ({}) from {} to {}...",
+        "http_error":     "[!] HTTP {}: {}",
+        "fetching_weight":"[*] Fetching weight records...",
+        "no_weight":      "[!] No weight data found.\n",
+        "no_data":        "[!] No data returned for this date range.",
+        "api_error":      "[!] API error: {}",
+        "saved":          "[+] Raw JSON saved to: {}",
+        "email_prompt":   "Zepp email: ",
+        "pass_prompt":    "Password:   ",
+        "activity_title": " WEEKLY PHYSICAL ACTIVITY TRACKER",
+        "weight_title":   " BODY COMPOSITION (Xiaomi scale)",
+        "avg_label":      "AVG",
+        "col_date":       "Date",
+        "col_steps":      "Steps",
+        "col_dist":       "Dist",
+        "col_cal":        "Cal",
+        "col_run":        "Run",
+        "col_sleep":      "Sleep",
+        "col_score":      "Score",
+        "col_rhr":        "RHR",
+        "col_wake":       "Wake",
+        "col_wmin":       "WMin",
+        "col_weight":     "Weight",
+        "col_bmi":        "BMI",
+        "col_fat":        "Fat%",
+        "col_muscle":     "Muscle%",
+        "col_water":      "Water%",
+        "col_bone":       "Bone",
+        "col_visceral":   "Visceral",
+        "col_source":     "Source",
+        "src_scale":      "scale",
+        "src_manual":     "manual",
+    },
+    "es": {
+        "step1":          "[*] Paso 1 — Obteniendo código de acceso para {}...",
+        "rate_limited":   "[!] 429 rate limited — esperando {}s (intento {}/4)...",
+        "rate_give_up":   "[!] Paso 1 sigue fallando con 429 tras 4 intentos. Espera unos minutos.",
+        "step1_failed":   "[!] Paso 1 fallido — estado {}",
+        "step1_ok":       "[+] Paso 1 OK — country_code={}",
+        "step2":          "[*] Paso 2 — Intercambiando código por app_token...",
+        "step2_failed":   "[!] Paso 2 fallido — estado {}",
+        "step2_body":     "    Body: {}",
+        "step2_unexpected":"[!] Respuesta inesperada en paso 2: {}",
+        "logged_in":      "[+] Sesión iniciada. user_id = {}",
+        "token_expired":  "[*] Token expirado — renovando automáticamente...",
+        "token_renewed":  "[+] Token renovado y guardado en .env",
+        "token_error":    "[!] No se pudo renovar el token:\n{}",
+        "using_token":    "[+] Usando token directo, user_id={}",
+        "fetching":       "[*] Obteniendo actividad ({}) del {} al {}...",
+        "http_error":     "[!] HTTP {}: {}",
+        "fetching_weight":"[*] Obteniendo registros de peso...",
+        "no_weight":      "[!] Sin datos de báscula en este período.\n",
+        "no_data":        "[!] Sin datos para este rango de fechas.",
+        "api_error":      "[!] Error de API: {}",
+        "saved":          "[+] JSON crudo guardado en: {}",
+        "email_prompt":   "Email Zepp: ",
+        "pass_prompt":    "Contraseña: ",
+        "activity_title": " SEGUIMIENTO SEMANAL DE ACTIVIDAD FÍSICA",
+        "weight_title":   " COMPOSICIÓN CORPORAL (báscula Xiaomi)",
+        "avg_label":      "MEDIA",
+        "col_date":       "Fecha",
+        "col_steps":      "Pasos",
+        "col_dist":       "Dist",
+        "col_cal":        "Cal",
+        "col_run":        "Corr",
+        "col_sleep":      "Sueño",
+        "col_score":      "Score",
+        "col_rhr":        "FCR",
+        "col_wake":       "Desp",
+        "col_wmin":       "Min↑",
+        "col_weight":     "Peso",
+        "col_bmi":        "BMI",
+        "col_fat":        "Grasa%",
+        "col_muscle":     "Músculo%",
+        "col_water":      "Agua%",
+        "col_bone":       "Hueso",
+        "col_visceral":   "Visceral",
+        "col_source":     "Fuente",
+        "src_scale":      "báscula",
+        "src_manual":     "manual",
+    },
+}
+
+_lang = "en"
+
+def t(key: str, *args) -> str:
+    s = STRINGS[_lang].get(key, STRINGS["en"][key])
+    return s.format(*args) if args else s
+
+
+# ──────────────────────────────────────────────
 # AUTH
 # ──────────────────────────────────────────────
 
@@ -24,13 +134,8 @@ DATA_URL = "https://api-mifit-de2.huami.com/v1/data/band_data.json"
 
 
 def login(email: str, password: str) -> dict:
-    """
-    Authenticate with Huami/Zepp servers using the 2-step flow (2024/2025).
-    Step 1: POST to api-user.huami.com/registrations/{email}/tokens → access code
-    Step 2: POST to account.huami.com/v2/client/login → app_token + user_id
-    """
+    """Authenticate with Huami/Zepp servers (2-step flow)."""
 
-    # ── Step 1: get access code ───────────────────────────────────────────────
     step1_url = f"https://api-user.huami.com/registrations/{requests.utils.quote(email)}/tokens"
     step1_headers = {
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -43,24 +148,23 @@ def login(email: str, password: str) -> dict:
         "token":        "access",
     }
 
-    print(f"[*] Step 1 — Getting access code for {email}...")
+    print(t("step1", email))
     for attempt in range(1, 5):
         r1 = requests.post(step1_url, data=step1_data, headers=step1_headers,
                            allow_redirects=False, timeout=15)
         if r1.status_code != 429:
             break
         wait = attempt * 30
-        print(f"[!] 429 rate limited — esperando {wait}s (intento {attempt}/4)...")
+        print(t("rate_limited", wait, attempt))
         time.sleep(wait)
     else:
-        print("[!] Step 1 sigue fallando con 429 tras 4 intentos. Espera unos minutos.")
+        print(t("rate_give_up"))
         sys.exit(1)
 
-    # The response is a 303 redirect; access token is in the Location header
     location = r1.headers.get("Location", "")
     if not location:
-        print(f"[!] Step 1 failed — status {r1.status_code}")
-        print(f"    Body: {r1.text}")
+        print(t("step1_failed", r1.status_code))
+        print(t("step2_body", r1.text))
         sys.exit(1)
 
     match = re.search(r"access=([^&]+)", location)
@@ -68,12 +172,11 @@ def login(email: str, password: str) -> dict:
         print(f"[!] Could not parse access code from: {location}")
         sys.exit(1)
 
-    access_code = match.group(1)
+    access_code  = match.group(1)
     country_code = re.search(r"country_code=([^&]+)", location)
     country_code = country_code.group(1) if country_code else "ES"
-    print(f"[+] Step 1 OK — country_code={country_code}")
+    print(t("step1_ok", country_code))
 
-    # ── Step 2: exchange access code for app_token ────────────────────────────
     step2_url = "https://account.huami.com/v2/client/login"
     step2_headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0",
@@ -95,21 +198,21 @@ def login(email: str, password: str) -> dict:
         "code":               access_code,
     }
 
-    print(f"[*] Step 2 — Exchanging code for app_token...")
+    print(t("step2"))
     r2 = requests.post(step2_url, data=step2_data, headers=step2_headers, timeout=15)
 
     if r2.status_code != 200:
-        print(f"[!] Step 2 failed — status {r2.status_code}")
-        print(f"    Body: {r2.text}")
+        print(t("step2_failed", r2.status_code))
+        print(t("step2_body", r2.text))
         sys.exit(1)
 
     data = r2.json()
     if "token_info" not in data:
-        print(f"[!] Step 2 unexpected response: {json.dumps(data, indent=2)}")
+        print(t("step2_unexpected", json.dumps(data, indent=2)))
         sys.exit(1)
 
     token_info = data["token_info"]
-    print(f"[+] Logged in! user_id = {token_info['user_id']}")
+    print(t("logged_in", token_info["user_id"]))
     return token_info
 
 
@@ -118,9 +221,8 @@ def login(email: str, password: str) -> dict:
 # ──────────────────────────────────────────────
 
 def renew_token(email: str, password: str, env_file: str) -> str:
-    """Renueva el app_token usando huami-token y actualiza el .env."""
     huami_bin = os.path.join(os.path.dirname(__file__), "venv", "bin", "huami-token")
-    print("[*] Token expirado — renovando automáticamente...")
+    print(t("token_expired"))
     result = subprocess.run(
         [huami_bin, "--method", "amazfit", "--email", email, "--password", password, "--no_logout"],
         capture_output=True, text=True
@@ -128,16 +230,15 @@ def renew_token(email: str, password: str, env_file: str) -> str:
     output = result.stdout + result.stderr
     match = re.search(r"^app_token=(.+)$", output, re.MULTILINE)
     if not match:
-        print("[!] No se pudo renovar el token:\n" + output)
+        print(t("token_error", output))
         sys.exit(1)
     new_token = match.group(1).strip()
-    # Actualizar .env
     with open(env_file) as f:
         content = f.read()
     content = re.sub(r"^ZEPP_TOKEN=.*$", f"ZEPP_TOKEN={new_token}", content, flags=re.MULTILINE)
     with open(env_file, "w") as f:
         f.write(content)
-    print(f"[+] Token renovado y guardado en .env")
+    print(t("token_renewed"))
     return new_token
 
 
@@ -150,20 +251,18 @@ def get_weight(app_token: str, user_id: str, from_date: str, to_date: str) -> li
     from_ts = int(datetime.strptime(from_date, "%Y-%m-%d").timestamp())
     to_ts   = int(datetime.strptime(to_date,   "%Y-%m-%d").timestamp()) + 86400
 
-    url = f"https://api-mifit.zepp.com/users/{user_id}/members/-1/weightRecords"
+    url     = f"https://api-mifit.zepp.com/users/{user_id}/members/-1/weightRecords"
     headers = {"apptoken": app_token}
     params  = {"limit": 200, "toTime": to_ts}
 
     resp = requests.get(url, headers=headers, params=params, timeout=15)
     if not resp.ok:
-        print(f"[!] Weight HTTP {resp.status_code}: {resp.text}")
+        print(t("http_error", resp.status_code, resp.text))
         return []
 
-    items = resp.json().get("items", [])
     results = []
-    for item in items:
+    for item in resp.json().get("items", []):
         wt = item.get("weightType", -1)
-        # 0 = báscula Xiaomi, 7 = entrada manual / Apple Health
         if wt not in (0, 7):
             continue
         if not (from_ts <= item["generatedTime"] <= to_ts):
@@ -171,7 +270,7 @@ def get_weight(app_token: str, user_id: str, from_date: str, to_date: str) -> li
         s = item["summary"]
         results.append({
             "date":     datetime.fromtimestamp(item["generatedTime"]).strftime("%Y-%m-%d"),
-            "source":   "báscula" if wt == 0 else "manual",
+            "source":   t("src_scale") if wt == 0 else t("src_manual"),
             "weight":   s.get("weight", 0),
             "bmi":      s.get("bmi", 0),
             "fat":      s.get("fatRate", 0),
@@ -186,23 +285,23 @@ def get_weight(app_token: str, user_id: str, from_date: str, to_date: str) -> li
 
 def print_weight(records: list):
     if not records:
-        print("[!] Sin datos de báscula en este período.\n")
+        print(t("no_weight"))
         return
 
-    W = 72
+    W = 80
     print("\n" + "═" * W)
-    print(" COMPOSICIÓN CORPORAL (báscula Xiaomi)")
+    print(t("weight_title"))
     print("═" * W)
-    print(f"{'Fecha':<12} {'Fuente':<8} {'Peso':>5} {'BMI':>5} {'Grasa%':>7} {'Músculo%':>9} {'Agua%':>6} {'Hueso':>6} {'Visceral':>9} {'Score':>6}")
+    print(f"{t('col_date'):<12} {t('col_source'):<8} {t('col_weight'):>6} {t('col_bmi'):>5} {t('col_fat'):>7} {t('col_muscle'):>9} {t('col_water'):>7} {t('col_bone'):>6} {t('col_visceral'):>9} {t('col_score'):>6}")
     print("─" * W)
     for r in records:
-        fat_s  = f"{r['fat']:.1f}"     if r['fat']     else "—"
-        musc_s = f"{r['muscle']:.1f}"  if r['muscle']  else "—"
-        water_s= f"{r['water']:.1f}"   if r['water']   else "—"
-        bone_s = f"{r['bone']:.2f}"    if r['bone']    else "—"
-        visc_s = f"{r['visceral']:.0f}"if r['visceral']else "—"
-        score_s= f"{r['score']}"       if r['score']   else "—"
-        print(f"{r['date']:<12} {r['source']:<8} {r['weight']:>5.1f} {r['bmi']:>5.1f} {fat_s:>7} {musc_s:>9} {water_s:>6} {bone_s:>6} {visc_s:>9} {score_s:>6}")
+        fat_s  = f"{r['fat']:.1f}"      if r['fat']      else "—"
+        musc_s = f"{r['muscle']:.1f}"   if r['muscle']   else "—"
+        water_s= f"{r['water']:.1f}"    if r['water']    else "—"
+        bone_s = f"{r['bone']:.2f}"     if r['bone']     else "—"
+        visc_s = f"{r['visceral']:.0f}" if r['visceral'] else "—"
+        score_s= f"{r['score']}"        if r['score']    else "—"
+        print(f"{r['date']:<12} {r['source']:<8} {r['weight']:>6.1f} {r['bmi']:>5.1f} {fat_s:>7} {musc_s:>9} {water_s:>7} {bone_s:>6} {visc_s:>9} {score_s:>6}")
     print("═" * W + "\n")
 
 
@@ -213,11 +312,6 @@ def print_weight(records: list):
 def get_activity(app_token: str, user_id: str,
                  from_date: str, to_date: str,
                  query_type: str = "summary") -> dict:
-    """
-    Fetch band activity data.
-    query_type: 'summary' | 'detail'
-    dates: 'YYYY-MM-DD'
-    """
     headers = {
         "AppPlatform": "web",
         "appname":     "com.xiaomi.hm.health",
@@ -231,10 +325,10 @@ def get_activity(app_token: str, user_id: str,
         "to_date":     to_date,
     }
 
-    print(f"[*] Fetching activity ({query_type}) from {from_date} to {to_date}...")
+    print(t("fetching", query_type, from_date, to_date))
     resp = requests.get(DATA_URL, headers=headers, params=params, timeout=15)
     if not resp.ok:
-        print(f"[!] HTTP {resp.status_code}: {resp.text}")
+        print(t("http_error", resp.status_code, resp.text))
         resp.raise_for_status()
     return resp.json()
 
@@ -254,15 +348,13 @@ def fmt_val(v, suffix="") -> str:
 
 
 def parse_and_print(data: dict):
-    """Pretty-print the activity summary."""
-
     if data.get("code") != 1:
-        print(f"[!] API error: {data}")
+        print(t("api_error", data))
         return
 
     records = data.get("data", [])
     if not records:
-        print("[!] No data returned for this date range.")
+        print(t("no_data"))
         return
 
     rows = []
@@ -277,36 +369,25 @@ def parse_and_print(data: dict):
         stp = summary.get("stp", {})
         slp = summary.get("slp", {})
 
-        # Actividad
-        steps    = stp.get("ttl", 0)
-        dist_m   = stp.get("dis", 0)
-        cal      = stp.get("cal", 0)
-        run_m    = stp.get("runDist", 0)
-        run_cal  = stp.get("runCal", 0)
-
-        # Sueño
         st, ed   = slp.get("st", 0), slp.get("ed", 0)
-        sleep    = (ed - st) // 60 if st and ed else 0
-        score    = slp.get("ss", 0)
-        rhr      = slp.get("rhr", 0)
-        wakeups  = slp.get("wc", 0)
-        wake_min = slp.get("wk", 0)
-
         rows.append({
-            "date": date_val,
-            "steps": steps, "dist_m": dist_m, "cal": cal,
-            "run_m": run_m, "run_cal": run_cal,
-            "sleep": sleep, "score": score, "rhr": rhr,
-            "wakeups": wakeups, "wake_min": wake_min,
+            "date":     date_val,
+            "steps":    stp.get("ttl", 0),
+            "dist_m":   stp.get("dis", 0),
+            "cal":      stp.get("cal", 0),
+            "run_m":    stp.get("runDist", 0),
+            "sleep":    (ed - st) // 60 if st and ed else 0,
+            "score":    slp.get("ss", 0),
+            "rhr":      slp.get("rhr", 0),
+            "wakeups":  slp.get("wc", 0),
+            "wake_min": slp.get("wk", 0),
         })
 
     W = 72
     print("\n" + "═" * W)
-    print(" SEGUIMIENTO SEMANAL DE ACTIVIDAD FÍSICA")
+    print(t("activity_title"))
     print("═" * W)
-
-    # Cabecera
-    print(f"{'Fecha':<12} {'Pasos':>7} {'Dist':>6} {'Cal':>5} {'Corr':>6} {'Sueño':>7} {'Score':>6} {'FCR':>5} {'Desp':>5} {'Min↑':>5}")
+    print(f"{t('col_date'):<12} {t('col_steps'):>7} {t('col_dist'):>6} {t('col_cal'):>5} {t('col_run'):>6} {t('col_sleep'):>7} {t('col_score'):>6} {t('col_rhr'):>5} {t('col_wake'):>5} {t('col_wmin'):>5}")
     print(f"{'':12} {'':>7} {'km':>6} {'':>5} {'km':>6} {'':>7} {'/100':>6} {'bpm':>5} {'':>5} {'':>5}")
     print("─" * W)
 
@@ -324,14 +405,13 @@ def parse_and_print(data: dict):
             f" {fmt_val(r['wake_min']):>5}"
         )
 
-    # Promedios
     def avg(key):
         vals = [r[key] for r in rows if r[key]]
         return sum(vals) / len(vals) if vals else 0
 
     print("─" * W)
     print(
-        f"{'MEDIA':<12}"
+        f"{t('avg_label'):<12}"
         f" {avg('steps'):>7,.0f}"
         f" {avg('dist_m')/1000:>6.2f}"
         f" {avg('cal'):>5.0f}"
@@ -351,9 +431,7 @@ def parse_and_print(data: dict):
 
 if __name__ == "__main__":
     import argparse
-    import os
 
-    # Cargar .env si existe
     env_file = os.path.join(os.path.dirname(__file__), ".env")
     if os.path.exists(env_file):
         with open(env_file) as f:
@@ -363,22 +441,25 @@ if __name__ == "__main__":
                     k, v = line.split("=", 1)
                     os.environ.setdefault(k.strip(), v.strip())
 
-    parser = argparse.ArgumentParser(description="Zepp activity fetcher")
-    parser.add_argument("--token",    default=os.environ.get("ZEPP_TOKEN"),    help="app_token directo (salta login)")
-    parser.add_argument("--userid",   default=os.environ.get("ZEPP_USERID"),   help="user_id directo (salta login)")
-    parser.add_argument("--email",    default=os.environ.get("ZEPP_EMAIL"),    help="Email Zepp")
-    parser.add_argument("--password", default=os.environ.get("ZEPP_PASSWORD"), help="Password Zepp")
-    parser.add_argument("--days",     type=int, default=7, help="Días hacia atrás (default: 7)")
+    parser = argparse.ArgumentParser(description="Zepp / Huami activity & body composition fetcher")
+    parser.add_argument("--token",    default=os.environ.get("ZEPP_TOKEN"),    help="app_token (skips login)")
+    parser.add_argument("--userid",   default=os.environ.get("ZEPP_USERID"),   help="user_id (skips login)")
+    parser.add_argument("--email",    default=os.environ.get("ZEPP_EMAIL"),    help="Zepp account email")
+    parser.add_argument("--password", default=os.environ.get("ZEPP_PASSWORD"), help="Zepp account password")
+    parser.add_argument("--days",     type=int, default=7,                     help="Days back to fetch (default: 7)")
+    parser.add_argument("--lang",     default=os.environ.get("ZEPP_LANG", "en"), choices=["en", "es"], help="Output language (default: en)")
     args = parser.parse_args()
+
+    _lang = args.lang
 
     to_date   = datetime.today().strftime("%Y-%m-%d")
     from_date = (datetime.today() - timedelta(days=args.days)).strftime("%Y-%m-%d")
 
-    email    = args.email    or input("Email Zepp: ")
-    password = args.password or input("Password:   ")
+    email    = args.email    or input(t("email_prompt"))
+    password = args.password or input(t("pass_prompt"))
 
     if args.token and args.userid:
-        print(f"[+] Usando token directo, user_id={args.userid}")
+        print(t("using_token", args.userid))
         app_token = args.token
         user_id   = args.userid
     else:
@@ -386,26 +467,19 @@ if __name__ == "__main__":
         app_token  = token_info["app_token"]
         user_id    = str(token_info["user_id"])
 
-    # 2. Obtener actividad (con auto-renovación de token si expira)
     try:
         raw = get_activity(app_token, user_id, from_date, to_date)
     except Exception:
         app_token = renew_token(email, password, env_file)
         raw = get_activity(app_token, user_id, from_date, to_date)
 
-    # Debug: ver estructura completa si falla
-    # print(json.dumps(raw, indent=2))
-
-    # 3. Mostrar actividad
     parse_and_print(raw)
 
-    # 4. Peso / composición corporal (últimos 10 registros de báscula)
-    print("[*] Fetching weight records...")
+    print(t("fetching_weight"))
     weight_records = get_weight(app_token, user_id, "2000-01-01", to_date)
     print_weight(weight_records[-10:] if weight_records else [])
 
-    # 5. Guardar JSON crudo por si quieres procesarlo después
     out_file = f"zepp_activity_{from_date}_{to_date}.json"
     with open(out_file, "w") as f:
         json.dump(raw, f, indent=2)
-    print(f"[+] Raw JSON guardado en: {out_file}")
+    print(t("saved", out_file))
