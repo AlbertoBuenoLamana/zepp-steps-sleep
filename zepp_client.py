@@ -142,6 +142,71 @@ def renew_token(email: str, password: str, env_file: str) -> str:
 
 
 # ──────────────────────────────────────────────
+# WEIGHT DATA
+# ──────────────────────────────────────────────
+
+def get_weight(app_token: str, user_id: str, from_date: str, to_date: str) -> list:
+    """Fetch body composition records from the Xiaomi smart scale."""
+    from_ts = int(datetime.strptime(from_date, "%Y-%m-%d").timestamp())
+    to_ts   = int(datetime.strptime(to_date,   "%Y-%m-%d").timestamp()) + 86400
+
+    url = f"https://api-mifit.zepp.com/users/{user_id}/members/-1/weightRecords"
+    headers = {"apptoken": app_token}
+    params  = {"limit": 200, "toTime": to_ts}
+
+    resp = requests.get(url, headers=headers, params=params, timeout=15)
+    if not resp.ok:
+        print(f"[!] Weight HTTP {resp.status_code}: {resp.text}")
+        return []
+
+    items = resp.json().get("items", [])
+    results = []
+    for item in items:
+        wt = item.get("weightType", -1)
+        # 0 = báscula Xiaomi, 7 = entrada manual / Apple Health
+        if wt not in (0, 7):
+            continue
+        if not (from_ts <= item["generatedTime"] <= to_ts):
+            continue
+        s = item["summary"]
+        results.append({
+            "date":     datetime.fromtimestamp(item["generatedTime"]).strftime("%Y-%m-%d"),
+            "source":   "báscula" if wt == 0 else "manual",
+            "weight":   s.get("weight", 0),
+            "bmi":      s.get("bmi", 0),
+            "fat":      s.get("fatRate", 0),
+            "muscle":   s.get("muscleRate", 0),
+            "water":    s.get("bodyWaterRate", 0),
+            "bone":     s.get("boneMass", 0),
+            "visceral": s.get("visceralFat", 0),
+            "score":    s.get("bodyScore", 0),
+        })
+    return sorted(results, key=lambda x: x["date"])
+
+
+def print_weight(records: list):
+    if not records:
+        print("[!] Sin datos de báscula en este período.\n")
+        return
+
+    W = 72
+    print("\n" + "═" * W)
+    print(" COMPOSICIÓN CORPORAL (báscula Xiaomi)")
+    print("═" * W)
+    print(f"{'Fecha':<12} {'Fuente':<8} {'Peso':>5} {'BMI':>5} {'Grasa%':>7} {'Músculo%':>9} {'Agua%':>6} {'Hueso':>6} {'Visceral':>9} {'Score':>6}")
+    print("─" * W)
+    for r in records:
+        fat_s  = f"{r['fat']:.1f}"     if r['fat']     else "—"
+        musc_s = f"{r['muscle']:.1f}"  if r['muscle']  else "—"
+        water_s= f"{r['water']:.1f}"   if r['water']   else "—"
+        bone_s = f"{r['bone']:.2f}"    if r['bone']    else "—"
+        visc_s = f"{r['visceral']:.0f}"if r['visceral']else "—"
+        score_s= f"{r['score']}"       if r['score']   else "—"
+        print(f"{r['date']:<12} {r['source']:<8} {r['weight']:>5.1f} {r['bmi']:>5.1f} {fat_s:>7} {musc_s:>9} {water_s:>6} {bone_s:>6} {visc_s:>9} {score_s:>6}")
+    print("═" * W + "\n")
+
+
+# ──────────────────────────────────────────────
 # ACTIVITY DATA
 # ──────────────────────────────────────────────
 
@@ -178,9 +243,18 @@ def get_activity(app_token: str, user_id: str,
 # DISPLAY
 # ──────────────────────────────────────────────
 
+def fmt_dur(minutes: int) -> str:
+    return f"{minutes // 60}h {minutes % 60}m" if minutes else "—"
+
+def fmt_km(meters: int) -> str:
+    return f"{meters / 1000:.2f}" if meters else "—"
+
+def fmt_val(v, suffix="") -> str:
+    return f"{v:,}{suffix}" if v else "—"
+
+
 def parse_and_print(data: dict):
     """Pretty-print the activity summary."""
-    import base64
 
     if data.get("code") != 1:
         print(f"[!] API error: {data}")
@@ -191,10 +265,7 @@ def parse_and_print(data: dict):
         print("[!] No data returned for this date range.")
         return
 
-    print("\n" + "═" * 38)
-    print(f"{'Fecha':<12} {'Pasos':>10} {'Sueño':>10}")
-    print("─" * 38)
-
+    rows = []
     for rec in records:
         date_val = rec.get("date_time", "N/A")
         raw = rec.get("summary", "")
@@ -206,15 +277,72 @@ def parse_and_print(data: dict):
         stp = summary.get("stp", {})
         slp = summary.get("slp", {})
 
-        steps = stp.get("ttl", 0)
-        st, ed = slp.get("st", 0), slp.get("ed", 0)
-        sleep = (ed - st) // 60 if st and ed else 0
-        sleep_s = f"{sleep // 60}h {sleep % 60}m" if sleep else "—"
+        # Actividad
+        steps    = stp.get("ttl", 0)
+        dist_m   = stp.get("dis", 0)
+        cal      = stp.get("cal", 0)
+        run_m    = stp.get("runDist", 0)
+        run_cal  = stp.get("runCal", 0)
 
-        print(f"{date_val:<12} {steps:>10,} {sleep_s:>10}")
+        # Sueño
+        st, ed   = slp.get("st", 0), slp.get("ed", 0)
+        sleep    = (ed - st) // 60 if st and ed else 0
+        score    = slp.get("ss", 0)
+        rhr      = slp.get("rhr", 0)
+        wakeups  = slp.get("wc", 0)
+        wake_min = slp.get("wk", 0)
 
-    print("═" * 38)
-    print(f"Total records: {len(records)}\n")
+        rows.append({
+            "date": date_val,
+            "steps": steps, "dist_m": dist_m, "cal": cal,
+            "run_m": run_m, "run_cal": run_cal,
+            "sleep": sleep, "score": score, "rhr": rhr,
+            "wakeups": wakeups, "wake_min": wake_min,
+        })
+
+    W = 72
+    print("\n" + "═" * W)
+    print(" SEGUIMIENTO SEMANAL DE ACTIVIDAD FÍSICA")
+    print("═" * W)
+
+    # Cabecera
+    print(f"{'Fecha':<12} {'Pasos':>7} {'Dist':>6} {'Cal':>5} {'Corr':>6} {'Sueño':>7} {'Score':>6} {'FCR':>5} {'Desp':>5} {'Min↑':>5}")
+    print(f"{'':12} {'':>7} {'km':>6} {'':>5} {'km':>6} {'':>7} {'/100':>6} {'bpm':>5} {'':>5} {'':>5}")
+    print("─" * W)
+
+    for r in rows:
+        print(
+            f"{r['date']:<12}"
+            f" {fmt_val(r['steps']):>7}"
+            f" {fmt_km(r['dist_m']):>6}"
+            f" {fmt_val(r['cal']):>5}"
+            f" {fmt_km(r['run_m']):>6}"
+            f" {fmt_dur(r['sleep']):>7}"
+            f" {fmt_val(r['score']):>6}"
+            f" {fmt_val(r['rhr']):>5}"
+            f" {fmt_val(r['wakeups']):>5}"
+            f" {fmt_val(r['wake_min']):>5}"
+        )
+
+    # Promedios
+    def avg(key):
+        vals = [r[key] for r in rows if r[key]]
+        return sum(vals) / len(vals) if vals else 0
+
+    print("─" * W)
+    print(
+        f"{'MEDIA':<12}"
+        f" {avg('steps'):>7,.0f}"
+        f" {avg('dist_m')/1000:>6.2f}"
+        f" {avg('cal'):>5.0f}"
+        f" {avg('run_m')/1000:>6.2f}"
+        f" {fmt_dur(int(avg('sleep'))):>7}"
+        f" {avg('score'):>6.1f}"
+        f" {avg('rhr'):>5.1f}"
+        f" {avg('wakeups'):>5.1f}"
+        f" {avg('wake_min'):>5.1f}"
+    )
+    print("═" * W + "\n")
 
 
 # ──────────────────────────────────────────────
@@ -268,10 +396,15 @@ if __name__ == "__main__":
     # Debug: ver estructura completa si falla
     # print(json.dumps(raw, indent=2))
 
-    # 3. Mostrar
+    # 3. Mostrar actividad
     parse_and_print(raw)
 
-    # 4. Guardar JSON crudo por si quieres procesarlo después
+    # 4. Peso / composición corporal (últimos 10 registros de báscula)
+    print("[*] Fetching weight records...")
+    weight_records = get_weight(app_token, user_id, "2000-01-01", to_date)
+    print_weight(weight_records[-10:] if weight_records else [])
+
+    # 5. Guardar JSON crudo por si quieres procesarlo después
     out_file = f"zepp_activity_{from_date}_{to_date}.json"
     with open(out_file, "w") as f:
         json.dump(raw, f, indent=2)
